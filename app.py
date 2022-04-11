@@ -3,6 +3,7 @@ from flask import Flask,render_template,Response, redirect, request, url_for
 import pandas as pd
 import numpy as np
 np.random.seed(123)
+import os
 
 # data visualization
 # import matplotlib.pyplot as plt
@@ -14,6 +15,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import pytorch_lightning as pl
 from tqdm.notebook import tqdm
+import pickle
+
 
 class MusicTrainDataset(Dataset):    
 
@@ -112,10 +115,15 @@ def index():
 @app.route('/recommend', methods=['GET', 'POST'])
 def recommend():  
 
-    test_ratings = pd.read_csv('./test_ratings.csv') 
-    ratings = pd.read_csv('./test_ratings.csv')
+    ratingsfile = os.path.join(app.static_folder, 'test_ratings.csv')
+     
+    ratings = pd.read_csv(ratingsfile)
+
     userid = int(request.form.get("userid"))
-    newmodel = torch.load('./musicmodel.pth')
+
+    modelfile = os.path.join(app.static_folder, 'songrecommender')
+   
+    loaded_model = pickle.load(open(modelfile, 'rb'))
    
     # Dict of all songs that are interacted with by each user
     user_interacted_songs = ratings.groupby('User ID')['Song ID'].apply(list).to_dict()
@@ -126,13 +134,13 @@ def recommend():
 
     top10_songs = []
    
-    for (u,i) in tqdm({(userid, songid)}):  
-        a = 1  
+    for (u,i) in tqdm({(94842, 131220)}):  
+
         interacted_songs = user_interacted_songs[u]      
         not_interacted_songs = set(all_SongIDs) - set(interacted_songs)       
         selected_not_interacted = list(np.random.choice(list(not_interacted_songs), 99))        
         test_songs = selected_not_interacted + [i]        
-        predicted_labels = np.squeeze(newmodel(torch.tensor([u]*100), 
+        predicted_labels = np.squeeze(loaded_model(torch.tensor([u]*100), 
                                             torch.tensor(test_songs)).detach().numpy())          
         top10_songs = [test_songs[i] for i in np.argsort(predicted_labels)[::-1][0:10].tolist()] 
 
